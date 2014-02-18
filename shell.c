@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 			gets(input);
 
 			// TESTING print out input (what user just entered)
-			printf("\ntest:: %s", input);
+			printf("\ntest:: %s\n", input);
 
 			// Parses command input
 			// strtok()
