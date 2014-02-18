@@ -9,8 +9,7 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-#define MAX_INPUT_LENGTH 514 //Max input 512 bytes not including return carriage (+1) or null char (+1)
-
+#define MAX_INPUT_LENGTH 512 //Max input 512 bytes
 
 /* Functions */
 
@@ -28,19 +27,18 @@ int main(int argc, char *argv[]) {
 			// Input variables
 
 
-			//string to store User input (max size is 512 bytes)
-			char input[MAX_INPUT_LENGTH+1];
+			//string to store User input (max size is 512 bytes) + null char + return char
+			char input[MAX_INPUT_LENGTH+2];
 
 			// prints a prompt
 			printf("mysh> ");
 
 			// Get a newline terminated string from stdin
 			// fgets accepts a stream argument,
-			// also allows to specify the maximum size of input (read till MAX-1)
+			// also allows to specify the maximum size of input (read till size-1)
 			// includes in the string any ending newline character.
 
-			if(fgets(input, (MAX_INPUT_LENGTH), stdin) == NULL)
-				perror("fgets failed to read in stdin");
+			if(fgets(input, (MAX_INPUT_LENGTH+2), stdin)){
 
 			// TESTING print out input (what user just entered)
 			// NOTE input needs a null terminating character saved for printf to work (Check size of input)
@@ -54,7 +52,14 @@ int main(int argc, char *argv[]) {
 
 			// TODO executes the command specified on that line of input,
 			// TODO waits for the command to finish.
-
+			}
+			else {
+			    if (feof(stdin)) {
+			        puts("EOF reached (2.)"); /* normal situation */
+			    } else {
+			        puts("error in input (1.)");
+			    }
+			}
 		}
 
 	} else if (argc == 2) {  // batch mode in case of arguments
