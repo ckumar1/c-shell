@@ -10,6 +10,12 @@
 #define STDERR_FILENO 2
 
 #define MAX_INPUT_LENGTH 512 //Max input 512 bytes
+void displayError() {
+	// Display Error
+	char error_message[30] = "An error has occurred\n";
+	write(STDERR_FILENO, error_message, strlen(error_message));
+}
+
 /* Functions */
 
 int main(int argc, char *argv[]) {
@@ -46,7 +52,6 @@ int main(int argc, char *argv[]) {
 						char* argTokens[256] = { NULL }; // stores tokens in array of char*
 						int nTokens = 0;   // stores number of tokens
 
-
 						// Copy command w/o '\n' from inputBuf
 						char command[buflen];
 						strncpy(command, inputBuf, cmdlen); // Copy input w/o trailing '\n' and '\0' chars
@@ -63,30 +68,36 @@ int main(int argc, char *argv[]) {
 
 						} // Done tokenizing the command input into arguments
 
-						// Exit shell if user types "exit"
-						if (strcmp("exit", argTokens[0]) == 0) {
-							exit(0);
-						}
+						// TODO implement whitespace formatting
 
-						// TODO Check the type of command
+						if (strcmp("exit", argTokens[0]) == 0) { // builtin command exit
+							exit(0);
+						} else if (strcmp("pwd", argTokens[0]) == 0) { // builtin command pwd
+							// TODO call cwd
+						} else if (strcmp("cd", argTokens[0]) == 0) {// builtin command cd
+							// Check for arguments
+							if (argTokens[1] == NULL ) {	// no-args
+								// TODO change to path stored in the $HOME environment variable. Use getenv("HOME") to obtain this.
+							} else { // NOTE check for more than one argument?
+								// TODO run chdir with argTokens[1]
+							}
+						} else if (strcmp("wait", argTokens[0]) == 0) {	// builtin command wait
+							// TODO Implement wait
+						} // else if(){} // TODO Python handler
+
+						// TODO Check command for redirection and background jobs
 						// TODO executes the command specified on that line of inputBuf,
 						// TODO waits for the command to finish.
 
 					} else { //Line does not terminate with '\n'
 
-						if (buflen + 1 == sizeof inputBuf) { /* If the buffer is full case: long input line */
-
-//			                puts("more data waiting (3.3.)\n"); /* long input line */
+						if (buflen + 1 == sizeof inputBuf) { // if buffer full then long input line
 
 							// Display Error
-							char error_message[30] = "An error has occurred\n";
-							write(STDERR_FILENO, error_message,
-									strlen(error_message));
-
+							displayError();
 							// Flush stdin
 							int c;
-							while ((c = getchar()) != '\n' && c != EOF)
-								;
+							while ((c = getchar()) != '\n' && c != EOF);
 
 							// Start from the top of the while loop
 							continue;
@@ -125,9 +136,7 @@ int main(int argc, char *argv[]) {
 	} else // Incorrect number of arguments
 	{
 
-		// Print error message to stderr
-		char error_message[30] = "An error has occurred\n";
-		write(STDERR_FILENO, error_message, strlen(error_message));
+		displayError();
 		//exit gracefully
 		exit(EXIT_FAILURE);
 
@@ -144,4 +153,15 @@ int main(int argc, char *argv[]) {
  *  Postcondition:
  *     the file referenced by fp is positioned at the end of the next line
  *     or the end of the file.
- //*/
+ */
+//	void dump_line( FILE * fp )
+//	{
+//	  int ch;
+//
+//	  while( (ch = fgetc(fp)) != EOF && ch != '\n' )
+//		/* null body */;
+//	}
+
+
+
+
