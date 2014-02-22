@@ -10,12 +10,26 @@
 #define STDERR_FILENO 2
 
 #define MAX_INPUT_LENGTH 512 //Max input 512 bytes
+
 /* Functions */
 
+/* function displayError
+ * Writes the generic error message to stderr
+ *
+ */
 void displayError() {
 	// Display Error
 	char error_message[30] = "An error has occurred\n";
 	write(STDERR_FILENO, error_message, strlen(error_message));
+}
+
+/* function dumpline
+ *  This function reads and dumps any remaining characters on the current input
+ *  line of a file. fp is a pointer to the FILE to read characters from.
+ */
+void dumpline(FILE * fp) {
+		int c;
+		while ((c = fgetc(fp)) != '\n' && c != EOF);
 }
 
 /*
@@ -27,20 +41,14 @@ void displayError() {
  *
  */
 
-
-int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2], char* argTokens[MAX_INPUT_LENGTH/2]) {
+int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
+		char* argTokens[MAX_INPUT_LENGTH / 2]) {
 
 	int numArgs = 0;
 
 	int bufferLength = strlen(inputBuffer);
 	// replace the '\n' char with '\0', truncating it by 1
-	inputBuffer[bufferLength-1 ] = '\0';
-
-//	char commandLine[bufferLength];
-//	// trim '\n' and '\0' from input buffer using strncpy
-//	strncpy(commandLine, inputBuf, cmdlen);// Copy input w/o trailing '\n' and '\0' chars
-//	commandLine[cmdlen] = '\0';// Add null term. char that was lost due to strncpy
-
+	inputBuffer[bufferLength - 1] = '\0';
 
 	// Tokenize inputBuf and store into arg array
 	char* tok = strtok(inputBuffer, " ");
@@ -166,18 +174,13 @@ int main(int argc, char *argv[]) {
 						}
 
 					} else { //Line does not terminate with '\n'
-						if (buflen + 1 == sizeof inputBuf) { // if buffer full then long input line
-
+						if (buflen + 1 == sizeof inputBuf) { // Too long input line
 							// Display Error
 							displayError();
 							// Flush stdin
-							int c;
-							while ((c = getchar()) != '\n' && c != EOF)
-								;
-
-							// Start from the top of the while loop
+							dumpline(stdin);
+							// restart from the top of the while loop
 							continue;
-
 						} else { // EOF reached before line break
 							puts("EOF reached before line break (3.1.)"); /* shouldn't happen */
 						}
@@ -211,7 +214,6 @@ int main(int argc, char *argv[]) {
 
 	} else // Incorrect number of arguments
 	{
-
 		displayError();
 		//exit gracefully
 		exit(EXIT_FAILURE);
@@ -219,21 +221,3 @@ int main(int argc, char *argv[]) {
 	}
 }
 
-/* function dump_line
- *  This function reads and dumps any remaining characters on the current input
- *  line of a file.
- *  Parameter:
- *     fp - pointer to a FILE to read characters from
- *  Precondition:
- *     fp points to a open file
- *  Postcondition:
- *     the file referenced by fp is positioned at the end of the next line
- *     or the end of the file.
- */
-//	void dump_line( FILE * fp )
-//	{
-//	  int ch;
-//
-//	  while( (ch = fgetc(fp)) != EOF && ch != '\n' )
-//		/* null body */;
-//	}
