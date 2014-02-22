@@ -10,13 +10,47 @@
 #define STDERR_FILENO 2
 
 #define MAX_INPUT_LENGTH 512 //Max input 512 bytes
+/* Functions */
+
 void displayError() {
 	// Display Error
 	char error_message[30] = "An error has occurred\n";
 	write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
-/* Functions */
+/*
+ * Parses a string buffer ending in a line break. Removes the '\n' char
+ * and tokenizes buffer into a string array
+ *
+ *
+ * @returns the number of tokens or items in the array
+ *
+ */
+
+
+int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2], char* argTokens[MAX_INPUT_LENGTH/2]) {
+
+	int numArgs = 0;
+
+	int bufferLength = strlen(inputBuffer);
+	// replace the '\n' char with '\0', truncating it by 1
+	inputBuffer[bufferLength-1 ] = '\0';
+
+//	char commandLine[bufferLength];
+//	// trim '\n' and '\0' from input buffer using strncpy
+//	strncpy(commandLine, inputBuf, cmdlen);// Copy input w/o trailing '\n' and '\0' chars
+//	commandLine[cmdlen] = '\0';// Add null term. char that was lost due to strncpy
+
+
+	// Tokenize inputBuf and store into arg array
+	char* tok = strtok(inputBuffer, " ");
+	while (tok != NULL ) {
+		argTokens[numArgs] = strdup(tok);	// Copy each token into array
+		numArgs++;	// Increment nTokens
+		tok = strtok(NULL, " ");	// Get next token
+	}
+	return (numArgs);
+}
 
 int main(int argc, char *argv[]) {
 
@@ -42,62 +76,104 @@ int main(int argc, char *argv[]) {
 
 				if (buflen > 0) {
 
-					size_t cmdlen = buflen - 1; // length of the cmd input w/o newline, index of newline char
+					// length of the cmd input w/o newline, index of newline char
+					size_t newlinePos = buflen - 1;
 
 					// input ends with a line break ('\n')
-					if (inputBuf[cmdlen] == '\n') {	// Acceptable input
+					if (inputBuf[newlinePos] == '\n') {	// Acceptable input
 
-						// Parses command from inputBuf
-
-						char* argTokens[256] = { NULL }; // stores tokens in array of char*
-						int nTokens = 0;   // stores number of tokens
-
-						// Copy command w/o '\n' from inputBuf
-						char command[buflen];
-						strncpy(command, inputBuf, cmdlen); // Copy input w/o trailing '\n' and '\0' chars
-						command[cmdlen] = '\0'; // Add null term. char that was lost due to strncpy
-
+						// Parses command from input buffer
+						char* argTokens[256] = { NULL }; // cmd line args
 						// Tokenize inputBuf and store into arg array
-						char* tok = strtok(command, " ");
-						while (tok != NULL ) {
+						int tokCount = parseCmdLn(inputBuf, argTokens); // number of tokens
 
-							// Copy each token into array
-							argTokens[nTokens] = strdup(tok);
-							nTokens++; // Increment nTokens
-							tok = strtok(NULL, " "); // Get next token
-
-						} // Done tokenizing the command input into arguments
-
-						// TODO implement whitespace formatting
-
-						if (strcmp("exit", argTokens[0]) == 0) { // builtin command exit
+						// check for exit built-in command
+						if (strcmp("exit", argTokens[0]) == 0) {
 							exit(0);
-						} else if (strcmp("pwd", argTokens[0]) == 0) { // builtin command pwd
-							// TODO call cwd
-						} else if (strcmp("cd", argTokens[0]) == 0) {// builtin command cd
-							// Check for arguments
-							if (argTokens[1] == NULL ) {	// no-args
-								// TODO change to path stored in the $HOME environment variable. Use getenv("HOME") to obtain this.
-							} else { // NOTE check for more than one argument?
-								// TODO run chdir with argTokens[1]
-							}
-						} else if (strcmp("wait", argTokens[0]) == 0) {	// builtin command wait
-							// TODO Implement wait
-						} // else if(){} // TODO Python handler
+						}
+
+						//Temporary built-in command implementation with if-else (exit working)
+
+						//						if (strcmp("pwd", argTokens[0]) == 0) { // builtin command pwd
+						//							// TODO implement cwd
+						//						} else if (strcmp("cd", argTokens[0]) == 0) {// builtin command cd
+						//							// Check for # of arguments
+						//							if (argTokens[1] == NULL ) {	// no-args
+						//								// TODO change to path stored in the $HOME environment variable. Use getenv("HOME") to obtain this.
+						//							} else { // NOTE check for more than one argument?
+						//								// TODO run chdir with argTokens[1]
+						//							}
+						//						} else if (strcmp("wait", argTokens[0]) == 0) {	// builtin command wait
+						//							// TODO Implement wait
+						//						} // else if(){} // TODO Python handler
 
 						// TODO Check command for redirection and background jobs
-						// TODO executes the command specified on that line of inputBuf,
-						// TODO waits for the command to finish.
+
+						// Creates a new process and executes the command
+						// Call fork()
+						int rc = fork();
+
+						// fork() creates two copies of this process
+						// Both processes continue execution from *this point*
+
+						// Failure
+						if (rc < 0) {
+							fprintf(stderr, "fork() failed\n");
+							exit(1);
+						}
+
+						// Child uses exec to run a different program
+						else if (rc == 0) {
+
+							// TODO implement redirection
+							//							// Close the file descriptor associated with stdout
+							//							int close_rc = close(STDOUT_FILENO);
+							//							if (close_rc < 0) {
+							//								perror("close");
+							//								exit(1);
+							//							}
+							//							// Open a new file
+							//							// This new file will be assigned the smallest available descriptor, which
+							//							// will equal STDOUT_FILENO, which we made available using close()
+							//							int fd = open("redirected_output.txt",
+							//									O_RDWR | O_TRUNC, S_IRWXU);
+							//							if (fd < 0) {
+							//								perror("open");
+							//								exit(1);
+							//							}
+
+							// Call execvp() to change the process
+							// First argument is name of program to run
+							// Second argument is the pointer to the array of command line args
+							execvp(argTokens[0], argTokens);
+
+							// A sucessful call to execvp() never returns
+							// TODO CASE: The command does not exist
+							displayError();
+
+						} // end child process
+
+						// Parent waits for child to finish
+						else {
+
+							// TODO implement background jobs
+							// By default, wait() stops until any one child of this parent finishes
+							int wc = wait(NULL );
+
+							printf(
+									"I'm the parent of %d (PID = %d).  I waited until %d finished.\n",
+									rc, (int) getpid(), wc);
+						}
 
 					} else { //Line does not terminate with '\n'
-
 						if (buflen + 1 == sizeof inputBuf) { // if buffer full then long input line
 
 							// Display Error
 							displayError();
 							// Flush stdin
 							int c;
-							while ((c = getchar()) != '\n' && c != EOF);
+							while ((c = getchar()) != '\n' && c != EOF)
+								;
 
 							// Start from the top of the while loop
 							continue;
