@@ -32,13 +32,12 @@ void dumpline(FILE * fp) {
 		while ((c = fgetc(fp)) != '\n' && c != EOF);
 }
 
-/*
+/* function parseCmdLn
+ * 
  * Parses a string buffer ending in a line break. Removes the '\n' char
  * and tokenizes buffer into a string array
  *
- *
- * @returns the number of tokens or items in the array
- *
+ * Returns the number of tokens or items in the array
  */
 
 int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
@@ -50,7 +49,7 @@ int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
 	// replace the '\n' char with '\0', truncating it by 1
 	inputBuffer[bufferLength - 1] = '\0';
 
-	// Tokenize inputBuf and store into arg array
+	// Tokenize inputBuffer and store into arg array
 	char* tok = strtok(inputBuffer, " ");
 	while (tok != NULL ) {
 		argTokens[numArgs] = strdup(tok);	// Copy each token into array
@@ -76,6 +75,7 @@ int main(int argc, char *argv[]) {
 			printf("mysh> ");
 
 			// Get a newline terminated string from stdin
+						
 			// check to make sure fgets returns valid input
 			if (fgets(inputBuf, (MAX_INPUT_LENGTH + 2), stdin)) {
 
@@ -204,16 +204,138 @@ int main(int argc, char *argv[]) {
 
 	} else if (argc == 2) {  // batch mode in case of arguments
 
-		// check if batch file is valid by opening
-		// fopen()
+		// Alternate implementation with freopen()
+		FILE *batchFile = freopen(argv[1], "r", stdin);
 
-		// get line of input from file
-		// fgets()
+
+		// Close the file descriptor associated with stdin
+		// int close_rc = close(STDIN_FILENO);
+		// if (close_rc < 0) {
+		// 	perror("stdin closing stdin");
+		// 	exit(1);
+		// }
+
+		// Open a new file
+		// This new file will be assigned the smallest available descriptor, which
+		// will equal STDIN_FILENO, which we made available using close()
+		// FILE *batchFile = fopen(argv[1], "r");
+		
+		if (batchFile == NULL) {	// unable to open filename 
+			displayError();
+					exit(1);
+		}	
+
+		// Prints a prompt interactive mode
+		// printf("mysh> ");
+		
+		// Get a newline terminated string from input stream
+		
+		
+		// read file line by line until EOF or error reading inputstream
+		while (feof(batchFile) == 0) { 
+		
+			char inputBuf[MAX_INPUT_LENGTH + 2]; // stores cmdline input (+ '\n' char + '\0' char)
+			fgets(inputBuf, (MAX_INPUT_LENGTH + 2), batchFile)
+			size_t buflen = strlen(inputBuf); // Number of characters read into buffer not inc null term.
+
+			// Prints the command back in batch mode
+			write(STDOUT_FILENO, inputBuf, buflen);
+
+					// check to make sure fgets returns valid input
+		if (inputBuf != NULL) { 
+
+				// length of the cmd input w/o newline, index of newline char
+				size_t newlinePos = buflen - 1;
+
+				// input ends with a line break ('\n')
+				if (inputBuf[newlinePos] == '\n') {	// Acceptable input
+
+					// Parses command from input buffer
+					char* argTokens[256] = { NULL }; // cmd line args
+					// Tokenize inputBuf and store into arg array
+					int tokCount = parseCmdLn(inputBuf, argTokens); // number of tokens
+
+					// check for exit built-in command
+					if (strcmp("exit", argTokens[0]) == 0) {
+						exit(0);
+					}
+
+					// TODO Check command for redirection and background jobs
+
+					// Creates a new process and executes the command
+					// Call fork()
+					int rc = fork();
+
+					// fork() creates two copies of this process
+					// Both processes continue execution from *this point*
+
+					// Failure
+					if (rc < 0) {
+						fprintf(stderr, "fork() failed\n");
+						exit(1);
+					}
+
+					// Child uses exec to run a different program
+					else if (rc == 0) {
+
+						// TODO implement redirection
+					
+						// Call execvp() to change the process
+						// First argument is name of program to run
+						// Second argument is the pointer to the array of command line args
+						execvp(argTokens[0], argTokens);
+
+						// A sucessful call to execvp() never returns
+						// TODO CASE: The command does not exist
+						displayError();
+
+					} // end child process
+
+					// Parent waits for child to finish
+					else {
+
+						// TODO implement background jobs
+						// By default, wait() stops until any one child of this parent finishes
+						int wc = wait(NULL );
+
+						printf(
+								"I'm the parent of %d (PID = %d).  I waited until %d finished.\n",
+								rc, (int) getpid(), wc);
+					}
+
+				} else { //Line does not terminate with '\n'
+					if (buflen + 1 == sizeof inputBuf) { // Too long input line
+						// Display Error
+						displayError();
+						// Flush stdin
+						dumpline(stdin);
+						// restart from the top of the while loop
+						continue;
+					} else { // EOF reached before line break
+						puts("EOF reached before line break (3.1.)"); /* shouldn't happen */
+					}
+				}
+			 
+
+		}
+		
+
+		}
+
+		// REACHED EOF
+		// Exit cleanly
+		exit(0);
+
+		
+
+		// End batch while loop
+
+
 
 		return (0);
 
-	} else // Incorrect number of arguments
-	{
+	} else { // invalid number of args (n>2)
+
 		displayError();
 		//exit gracefully
 		exit(EXIT_FAILURE);
