@@ -34,6 +34,20 @@ void dumpline(FILE * fp) {
 		;
 }
 
+int tokenize(char inputString[MAX_INPUT_LENGTH + 2],
+		char* tokens[MAX_INPUT_LENGTH / 2]) {
+	int ntokens = 0;
+
+	// Tokenize inputBuffer and store into arg array
+	char* tok = strtok(inputString, " ");
+	while (tok != NULL ) {
+		tokens[ntokens] = strdup(tok);	// Copy each token into array
+		ntokens++;	// Increment ntokens
+		tok = strtok(NULL, " ");	// Get next token
+	}
+	return ntokens;
+}
+
 /* function parseCmdLn
  * 
  * Parses a string buffer ending in a line break. Removes the '\n' char
@@ -51,25 +65,63 @@ int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
 	// replace the '\n' char with '\0', truncating it by 1
 	inputBuffer[--bufferLength] = '\0';
 
-
-	// TODO Check for redir and background jobs
-
 	// detect background jobs
-	if (inputBuffer[bufferLength-1] == '&') {
+	if (inputBuffer[bufferLength - 1] == '&') {
 		*bg_mode = TRUE;	// set background mode to true
 		// replace the '&' char with '\0', truncating it by 1
 		inputBuffer[--bufferLength] = '\0';
+	}
+
+	// TODO Detect redir in command
+	// tests if '>' exists in string
+	int redirPos = strchr(inputBuffer, '>');
+	if (redirPos) {
+		*redir_mode = TRUE;	// set background mode to true
+
+		// Pointer to second half of string
+		char* redir_output;
+		redir_output = inputBuffer + redirPos + 1;
+
+		size_t maxOutputSize = strlen(redir_output) + 1;
+		// Create a new string to copy output into
+		char* outputFileName;
+
+		// Copy output to a safe string
+		strncpy(outputFileName, redir_output, maxOutputSize);
+
+		// truncate the command line to redir section
+		inputBuffer[redirPos + 1] = '\0';
+		// add missing '\n'
+		inputBuffer[redirPos] = '\n';
+
+		// validate that the output section is valid
+		char* oTokens[maxOutputSize / 2];
+
+		// parse output and check number of tokens
+		if (tokenize(outputFileName, oTokens) != 1) { // check if redir commmand is formatted correctly
+			displayError();
+		}
+
+//		// Close the file descriptor associated with stdout
+//		int close_rc = close(STDOUT_FILENO);
+//		if (close_rc < 0) {
+//			perror("close");
+//			exit(1);
+//		}
+//		// Open a new file
+//		// This new file will be assigned the smallest available descriptor, which
+//		// will equal STDOUT_FILENO, which we made available using close()
+//		int fd = open("redirected_output.txt",
+//				O_RDWR | O_TRUNC, S_IRWXU);
+//		if (fd < 0) {
+//			perror("open");
+//			exit(1);
+//		}
 
 	}
 
 	// Tokenize inputBuffer and store into arg array
-	char* tok = strtok(inputBuffer, " ");
-	while (tok != NULL ) {
-		argTokens[numArgs] = strdup(tok);	// Copy each token into array
-		numArgs++;	// Increment nTokens
-		tok = strtok(NULL, " ");	// Get next token
-	}
-	return (numArgs);
+	return (tokenize(inputBuffer, argTokens)); // Return # of tokens in cmd input
 }
 
 void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode) {
@@ -81,11 +133,9 @@ void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode) {
 		exit(1);
 	}
 
-	// Child uses exec to run a different program
+	// Child uses execvp to run a different program
 	else if (rc == 0) {
-		// Call execvp() to change the process
 		execvp(argTokens[0], argTokens);
-		// A sucessful call to execvp() never returns
 		// Error Case: The command does not exist
 		displayError();
 
@@ -94,10 +144,9 @@ void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode) {
 	// Parent waits for child to finish
 	else {
 		// wait() stops and waits for child if not in bg mode
-		if(bg_mode == FALSE) {
-			int wc = wait(NULL); // TODO build custom wait
+		if (bg_mode == FALSE) {
+			int wc = wait(NULL ); // TODO build custom wait
 		}
-
 
 		if (inputMode == INTERACTIVE_MODE) {
 			printf("mysh> ");
@@ -133,13 +182,10 @@ void execShell(FILE* inputStream, int inputMode) {
 				// Tokenize inputBuf and store into arg array
 				parseCmdLn(inputBuf, argTokens, &bg_mode, &redir_mode);
 
-				// printf("Successful background read!");
-
 				// TODO built-in commands
 				if (strcmp("exit", argTokens[0]) == 0) {
 					exit(0);
 				}
-
 				// Create a new process to run the command
 				// Parent waits until it exits if not background mode
 				runCmd(&argTokens, &bg_mode, &redir_mode, inputMode);
@@ -147,9 +193,7 @@ void execShell(FILE* inputStream, int inputMode) {
 			} else { //Line does not terminate with '\n'
 				if (buflen + 1 == sizeof inputBuf) { // Too long input line
 
-					// Display Error
 					displayError();
-
 					// Flush input stream to get rid of trailing new line character
 					dumpline(inputStream);
 
@@ -164,6 +208,8 @@ void execShell(FILE* inputStream, int inputMode) {
 					continue;
 
 				} else { // EOF reached before line break
+					//TODO Likely due to redirect
+
 					puts("EOF reached before line break (3.1.)"); /* shouldn't happen */
 				}
 			}
