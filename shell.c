@@ -10,6 +10,8 @@
 #define STDERR_FILENO 2
 
 #define MAX_INPUT_LENGTH 512 //Max input 512 bytes
+#define INTERACTIVE_MODE 0
+#define BATCH_MODE 1
 /* Functions */
 
 /* function displayError
@@ -86,155 +88,92 @@ void runCmd(char** argTokens[256]) {
 	}
 }
 
+void execShell(FILE* inputStream, int inputMode) {
+
+	char inputBuf[MAX_INPUT_LENGTH + 2];
+
+	// read file line by line until EOF or error reading inputstream
+	while (fgets(inputBuf, (MAX_INPUT_LENGTH + 2), inputStream)) {
+
+		// check to make sure fgets returns valid input
+		if (inputBuf != NULL ) {
+			size_t buflen = strlen(inputBuf); // Number of characters read into buffer not inc null term.
+
+			// Prints the command back in batch mode
+			if (inputMode == BATCH_MODE)
+				write(STDOUT_FILENO, inputBuf, buflen);
+
+			// newline char index, if it exists
+			size_t newlinePos = buflen - 1;
+			if (inputBuf[newlinePos] == '\n') {	// input ends with ('\n')Acceptable length
+
+				char* argTokens[256] = { NULL }; // cmd line args
+
+				// Tokenize inputBuf and store into arg array
+				parseCmdLn(inputBuf, argTokens);
+
+				// TODO built-in commands
+				if (strcmp("exit", argTokens[0]) == 0) {
+					exit(0);
+				}
+
+				// TODO Check for redir and background jobs
+
+				// Create a new process to run the command
+				// Parent waits until it exits if not background mode
+				runCmd(&argTokens);
+
+			} else { //Line does not terminate with '\n'
+				if (buflen + 1 == sizeof inputBuf) { // Too long input line
+
+					// Display Error
+					displayError();
+
+					// Flush input stream to get rid of trailing new line character
+					dumpline(inputStream);
+
+					// write a newline character to stdout
+					FILE* outStream = stdout;
+					putc("\n", outStream ); // TODO Redirection fix
+
+
+					if (inputMode == INTERACTIVE_MODE) {
+						printf("mysh> ");
+					}
+					// restart from the top of the while loop
+					continue;
+
+				} else { // EOF reached before line break
+					puts("EOF reached before line break (3.1.)"); /* shouldn't happen */
+				}
+			}
+
+		}
+
+	}
+}
+
 int main(int argc, char *argv[]) {
 
 	if (argc == 1) {  // if no arguments are specified run in Interactive mode
+		// prints initial prompt
+		printf("mysh> ");
 
 		// Interactive loop to keep asking user for input
-		while (TRUE) {
+		execShell(stdin, 0);
 
-			// Input variables
-
-			char inputBuf[MAX_INPUT_LENGTH + 2]; // input buffer (max size + '\n' char + '\0' char)
-			size_t buflen; // Number of characters read into buffer not inc null term.
-
-			// prints a prompt
-			printf("mysh> ");
-
-			// Get a newline terminated string from stdin
-
-			// check to make sure fgets returns valid input
-			if (fgets(inputBuf, (MAX_INPUT_LENGTH + 2), stdin)) {
-
-				// buflen is the number of chars read including newline
-				buflen = strlen(inputBuf);
-
-				if (buflen > 0) {
-
-					// expected index of newline char
-					size_t newlinePos = buflen - 1;
-
-					// input ends with a line break ('\n')
-					if (inputBuf[newlinePos] == '\n') {	// Acceptable input
-
-						// Parses command from input buffer
-						char* argTokens[256] = { NULL }; // cmd line args
-						// Tokenize inputBuf and store into arg array
-						int tokCount = parseCmdLn(inputBuf, argTokens); // number of tokens
-
-						// check for exit built-in command
-						if (strcmp("exit", argTokens[0]) == 0) {
-							exit(0);
-						}
-
-						// Creates a new process and executes the command
-						runCmd(&argTokens);
-
-					} else { //Line does not terminate with '\n'
-						if (buflen + 1 == sizeof inputBuf) {	// Too long input line
-
-							int wch = write(STDOUT_FILENO, '\n', 2);	// write a newline character to stdout
-							if (wch != 0) perror("write error! ('\\n')");
-							displayError();		// Display Error
-							dumpline(stdin);	// Flush stdin
-							// restart from the top of the while loop
-							continue;
-
-						} else { // EOF reached before line break
-							puts("EOF reached before line break (3.1.)"); /* shouldn't happen */
-						}
-					}
-				} else {
-					puts("EOF reached before line break (3.1.)"); /* shouldn't happen */
-				}
-
-			} else {
-				if (feof(stdin)) { // unlikely to reach in interactive mode
-					// puts("EOF reached (2.)");
-					// Exit cleanly
-					exit(0);
-				} else {
-					// puts("error in inputBuf (1.)");
-					displayError();
-				}
-			}
-		}
-
-	} else if (argc == 2) {  // TODO batch mode in case of arguments
-
-		// Alternate implementation with freopen()
+	} else if (argc == 2) {  // batch mode in case of arguments
+		// replace stdin stream with batchFile stream
 		FILE *batchFile = freopen(argv[1], "r", stdin);
 		if (batchFile == NULL ) {	// unable to open filename
 			displayError();
 			exit(1);
 		}
 
-		// Close the file descriptor associated with stdin
-		// int close_rc = close(STDIN_FILENO);
-		// if (close_rc < 0) {
-		// 	perror("stdin closing stdin");
-		// 	exit(1);
-		// }
-		// Open a new file
-		// This new file will be assigned the smallest available descriptor, which
-		// will equal STDIN_FILENO, which we made available using close()
-		// FILE *batchFile = fopen(argv[1], "r");
+		// run the shell in batch file mode
+		execShell(batchFile, BATCH_MODE);
 
-		// Prints a prompt interactive mode
-		// printf("mysh> ");
-
-		char inputBuf[MAX_INPUT_LENGTH + 2]; // stores cmdline input (+ '\n' char + '\0' char)
-
-		// read file line by line until EOF or error reading inputstream
-		while (fgets(inputBuf, (MAX_INPUT_LENGTH + 2), batchFile)) {
-
-			// check to make sure fgets returns valid input
-			if (inputBuf != NULL ) {
-				size_t buflen = strlen(inputBuf); // Number of characters read into buffer not inc null term.
-
-				// Prints the command back in batch mode
-				write(STDOUT_FILENO, inputBuf, buflen);
-
-				// newline char index, if it exists
-				size_t newlinePos = buflen - 1;
-				if (inputBuf[newlinePos] == '\n') {	// input ends with ('\n')Acceptable length
-
-					// Parses command from input buffer
-					char* argTokens[256] = { NULL }; // cmd line args
-
-					// Tokenize inputBuf and store into arg array
-					int tokCount = parseCmdLn(inputBuf, argTokens);
-
-					// check for exit built-in command
-					if (strcmp("exit", argTokens[0]) == 0) {
-						exit(0);
-					}
-					// Create a new process to run the command
-					// Parent waits until it exits if not background mode
-					runCmd(argTokens);
-
-				} else { //Line does not terminate with '\n'
-					if (buflen + 1 == sizeof inputBuf) { // Too long input line
-
-						fwrite("\n", 2, stdout);
-						// Display Error
-						displayError();
-						// Flush input stream
-						dumpline(batchFile);
-						// write a newline character to stdout
-						// write(STDOUT_FILENO, '\n', 2);
-
-						// restart from the top of the while loop
-						continue;
-					} else { // EOF reached before line break
-						puts("EOF reached before line break (3.1.)"); /* shouldn't happen */
-					}
-				}
-
-			}
-
-		}
-		// REACHED EOF
+		// Case: reached EOF
 		// Exit cleanly
 		exit(0);
 
@@ -244,5 +183,7 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 
 	}
+
+	return (0);
 }
 
