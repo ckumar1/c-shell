@@ -121,26 +121,25 @@ int main(int argc, char *argv[]) {
 						char* argTokens[256] = { NULL }; // cmd line args
 						// Tokenize inputBuf and store into arg array
 						int tokCount = parseCmdLn(inputBuf, argTokens); // number of tokens
+
 						// check for exit built-in command
 						if (strcmp("exit", argTokens[0]) == 0) {
 							exit(0);
 						}
 
-
 						// Creates a new process and executes the command
 						runCmd(&argTokens);
 
-
 					} else { //Line does not terminate with '\n'
-						if (buflen + 1 == sizeof inputBuf) { // Too long input line
-							// Display Error
-							displayError();
-							// Flush stdin
-							dumpline(stdin);
-							// write a newline character to stdout
-							write(STDOUT_FILENO, '\n', 1);
+						if (buflen + 1 == sizeof inputBuf) {	// Too long input line
+
+							int wch = write(STDOUT_FILENO, '\n', 2);	// write a newline character to stdout
+							if (wch != 0) perror("write error! ('\\n')");
+							displayError();		// Display Error
+							dumpline(stdin);	// Flush stdin
 							// restart from the top of the while loop
 							continue;
+
 						} else { // EOF reached before line break
 							puts("EOF reached before line break (3.1.)"); /* shouldn't happen */
 						}
@@ -223,7 +222,7 @@ int main(int argc, char *argv[]) {
 						// Flush input stream
 						dumpline(batchFile);
 						// write a newline character to stdout
-//						write(STDOUT_FILENO, '\n', 2);
+						// write(STDOUT_FILENO, '\n', 2);
 
 						// restart from the top of the while loop
 						continue;
