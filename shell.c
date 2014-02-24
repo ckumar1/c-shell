@@ -43,13 +43,24 @@ void dumpline(FILE * fp) {
  */
 
 int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
-		char* argTokens[MAX_INPUT_LENGTH / 2]) {
+		char* argTokens[MAX_INPUT_LENGTH / 2], int* bg_mode, int* redir_mode) {
 
 	int numArgs = 0;
 
 	int bufferLength = strlen(inputBuffer);
 	// replace the '\n' char with '\0', truncating it by 1
-	inputBuffer[bufferLength - 1] = '\0';
+	inputBuffer[--bufferLength] = '\0';
+
+
+	// TODO Check for redir and background jobs
+
+	// detect background jobs
+	if (inputBuffer[bufferLength-1] == '&') {
+		*bg_mode = TRUE;	// set background mode to true
+		// replace the '&' char with '\0', truncating it by 1
+		inputBuffer[--bufferLength] = '\0';
+
+	}
 
 	// Tokenize inputBuffer and store into arg array
 	char* tok = strtok(inputBuffer, " ");
@@ -61,7 +72,7 @@ int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
 	return (numArgs);
 }
 
-void runCmd(char** argTokens[256]) {
+void runCmd(char** argTokens[256], int bg_mode, int redir_mode) {
 
 	// Creates a new process and executes the command
 	int rc = fork();
@@ -94,9 +105,9 @@ void execShell(FILE* inputStream, int inputMode) {
 
 	// read file line by line until EOF or error reading inputstream
 	while (fgets(inputBuf, (MAX_INPUT_LENGTH + 2), inputStream)) {
-
 		// check to make sure fgets returns valid input
 		if (inputBuf != NULL ) {
+
 			size_t buflen = strlen(inputBuf); // Number of characters read into buffer not inc null term.
 
 			// Prints the command back in batch mode
@@ -109,19 +120,22 @@ void execShell(FILE* inputStream, int inputMode) {
 
 				char* argTokens[256] = { NULL }; // cmd line args
 
+				int bg_mode = 0;
+				int redir_mode = 0;
+
 				// Tokenize inputBuf and store into arg array
-				parseCmdLn(inputBuf, argTokens);
+				parseCmdLn(inputBuf, argTokens, &bg_mode, &redir_mode);
+
+//				printf("Successful background read!");
 
 				// TODO built-in commands
 				if (strcmp("exit", argTokens[0]) == 0) {
 					exit(0);
 				}
 
-				// TODO Check for redir and background jobs
-
 				// Create a new process to run the command
 				// Parent waits until it exits if not background mode
-				runCmd(&argTokens);
+				runCmd(&argTokens, &bg_mode, &redir_mode);
 
 			} else { //Line does not terminate with '\n'
 				if (buflen + 1 == sizeof inputBuf) { // Too long input line
@@ -134,8 +148,7 @@ void execShell(FILE* inputStream, int inputMode) {
 
 					// write a newline character to stdout
 					FILE* outStream = stdout;
-					putc("\n", outStream ); // TODO Redirection fix
-
+					putc("\n", outStream); // TODO Redirection fix
 
 					if (inputMode == INTERACTIVE_MODE) {
 						printf("mysh> ");
@@ -158,7 +171,6 @@ int main(int argc, char *argv[]) {
 	if (argc == 1) {  // if no arguments are specified run in Interactive mode
 		// prints initial prompt
 		printf("mysh> ");
-
 		// Interactive loop to keep asking user for input
 		execShell(stdin, 0);
 
@@ -169,21 +181,14 @@ int main(int argc, char *argv[]) {
 			displayError();
 			exit(1);
 		}
-
-		// run the shell in batch file mode
 		execShell(batchFile, BATCH_MODE);
-
-		// Case: reached EOF
-		// Exit cleanly
 		exit(0);
 
 	} else { // invalid number of args (n>2)
 		displayError();
 		//exit gracefully
 		exit(EXIT_FAILURE);
-
 	}
-
 	return (0);
 }
 
