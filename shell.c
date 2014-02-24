@@ -72,7 +72,7 @@ int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
 	return (numArgs);
 }
 
-void runCmd(char** argTokens[256], int bg_mode, int redir_mode) {
+void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode) {
 
 	// Creates a new process and executes the command
 	int rc = fork();
@@ -93,9 +93,16 @@ void runCmd(char** argTokens[256], int bg_mode, int redir_mode) {
 
 	// Parent waits for child to finish
 	else {
-		// TODO implement background tasks
-		// wait() stops until any one child of this parent finishes
-		int wc = wait(NULL );
+		// wait() stops and waits for child if not in bg mode
+		if(bg_mode == FALSE) {
+			int wc = wait(NULL); // TODO build custom wait
+		}
+
+
+		if (inputMode == INTERACTIVE_MODE) {
+			printf("mysh> ");
+		}
+
 	}
 }
 
@@ -126,7 +133,7 @@ void execShell(FILE* inputStream, int inputMode) {
 				// Tokenize inputBuf and store into arg array
 				parseCmdLn(inputBuf, argTokens, &bg_mode, &redir_mode);
 
-//				printf("Successful background read!");
+				// printf("Successful background read!");
 
 				// TODO built-in commands
 				if (strcmp("exit", argTokens[0]) == 0) {
@@ -135,7 +142,7 @@ void execShell(FILE* inputStream, int inputMode) {
 
 				// Create a new process to run the command
 				// Parent waits until it exits if not background mode
-				runCmd(&argTokens, &bg_mode, &redir_mode);
+				runCmd(&argTokens, &bg_mode, &redir_mode, inputMode);
 
 			} else { //Line does not terminate with '\n'
 				if (buflen + 1 == sizeof inputBuf) { // Too long input line
