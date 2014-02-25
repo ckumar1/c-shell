@@ -180,18 +180,20 @@ int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
  */
 int redirectOutput(char* filename) {
 	// Close the file descriptor associated with stdout
-	int close_rc = close(STDOUT_FILENO);
-	if (close_rc < 0) {
+	FILE* fnFile = freopen(filename, "w",stdout);
+
+	int freopen_rc = close(STDOUT_FILENO);
+	if (freopen_rc < 0) {
 		displayError();
 		return (-2);
 	}
-	// Open a new file with the same fd as STDOUT_FILENO
-	int fd = open(filename, O_RDWR | O_TRUNC, S_IRWXU);
-	if (fd < 0) {
-		displayError();
-		perror("file descriptor won't open..");
-		return (-1);
-	}
+//	// Open a new file with the same fd as STDOUT_FILENO
+//	int fd = open(filename, O_RDWR | O_TRUNC, S_IRWXU);
+//	if (fd < 0) {
+//		displayError();
+//		perror("file descriptor won't open..");
+//		return (-1);
+//	}
 	return (0);
 }
 
