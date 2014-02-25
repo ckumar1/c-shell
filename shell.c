@@ -46,15 +46,35 @@ int tokenize(char inputString[MAX_INPUT_LENGTH + 2],
 		char* tokens[MAX_INPUT_LENGTH / 2]) {
 
 	int ntokens = 0;
+//	tokens = NULL;
+	char* tok = NULL;
+	do {
+		// Tokenize inputBuffer and store into arg array
+		tok = strtok(inputString, " ");
 
-	// Tokenize inputBuffer and store into arg array
-	char* tok = strtok(inputString, " ");
-	while (tok != NULL ) {
 		tokens[ntokens] = strdup(tok);	// Copy each token into array
+
 		ntokens++;	// Increment ntokens
+
 		tok = strtok(NULL, " ");	// Get next token
-	}
+
+	} while (tok != NULL );
+
 	return (ntokens);
+}
+
+char* prepRedirInput(char* redirStr) {
+	// Pointer to second half of string
+	char* redir_output = NULL;
+	redir_output = redirStr + 1;
+	// size_t maxOutputSize = strlen(redir_output) + 1;
+	// Truncate the command line section to r/m redir section
+	redirStr[0] = '\0';
+
+//	redirStr = &redir_output;
+//	redirStr++;
+	return (strdup(redir_output));
+
 }
 
 /* function checkRedir
@@ -62,47 +82,45 @@ int tokenize(char inputString[MAX_INPUT_LENGTH + 2],
  * Detects if the command in the input buffer needs to be redirected.
  * Sets redir_mode accordingly
  *
+ *returns 0 for when redir is Not found
+ *returns 1 when redir is found, and correctly formatted
+ *returns -1 when redir is found, but incorrectly formatted
  */
-int checkRedir(char inputBuffer[MAX_INPUT_LENGTH + 2], int* redir_mode) {
-	
+int checkRedir(char inputBuffer[MAX_INPUT_LENGTH + 2], int* redir_mode,
+		char* outFile) {
+
+	outFile = NULL;
+
 	// check '>' exists in inputStream
-	char* redirStr;
+	char* redirStr = NULL;
 	redirStr = strchr(inputBuffer, '>');
 
 	if (redirStr) {
 
+		char* outputFileName;
 		// Pointer to second half of string
-		char* redir_output;
-		redir_output = redirStr + 1;
-		size_t maxOutputSize = strlen(redir_output) + 1;
-
-		// Create a new string to copy output into
-		char outputFileName[maxOutputSize];
-
-		// Copy output file name to a safe string
-		strncpy(outputFileName, redir_output, maxOutputSize);
-
-		// Truncate the command line section to r/m redir section
-		redirStr[0]= '\0';
-		// add missing '\n'
-//		redirStr[0] = '\n';
-
-		char* oTokens[maxOutputSize / 2];
+		outputFileName = prepRedirInput(redirStr);
+		//outputFileName = strdup(redirStr);
+		// Token array to parse redir output into
+		char* oTokens[strlen(outputFileName)];
 
 		// validate that the output section is valid
-		// by parsing output and check number of tokens
-
+		// by tokenizing output and counting # of tokens
 		size_t numTokens = tokenize(outputFileName, oTokens);
+
 		if (numTokens != 1) { // check if redir commmand is formatted correctly
 			displayError();
 			return (-1);
 		} else {
 			*redir_mode = TRUE;	// set redirect mode to true
+			outFile = strdup(*oTokens);
+			return (1);
 		}
 
 	}
-}
 
+	return (0); // no redirect found
+}
 
 /* function checkBgJob
  *
@@ -127,12 +145,11 @@ void checkBgJob(char inputBuffer[MAX_INPUT_LENGTH + 2], int* bg_mode) {
  * Returns the number of tokens or items in the array on success
  * Returns -1 if there was an error during parsing
  *
- *
- *
  */
 
 int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
-		char* argTokens[MAX_INPUT_LENGTH / 2], int* bg_mode, int* redir_mode) {
+		char* argTokens[MAX_INPUT_LENGTH / 2], int* bg_mode, int* redir_mode,
+		char* redirFile) {
 
 	//	int bufferLength = strlen(inputBuffer);
 	// replace the '\n' char with '\0', truncating it by 1
@@ -142,26 +159,40 @@ int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
 	checkBgJob(inputBuffer, bg_mode);
 
 	// check '>' exists in inputStream
-	if(checkRedir(inputBuffer, redir_mode) < 0)
+	int redir_rc = checkRedir(inputBuffer, redir_mode, redirFile);
+
+	if (redir_rc < 0) {	// error in redir format
 		return (-1);
+	}
 
 	// Tokenize inputBuffer and store into arg array
 	return (tokenize(inputBuffer, argTokens)); // Return # of tokens in cmd input
 }
 
-void redirectOutput(char* filename) {
+/* function redirectOutput
+ *
+ * Closes whatever stream is at STDOUT_FILENO and attempts to open
+ * the given file
+ * Returns 0 if file was successfully opened
+ * Returns -1 if there was an error opening the redirect file
+ * Returns -2 if there was an error closing stdout file descriptor
+ *
+ */
+int redirectOutput(char* filename) {
 	// Close the file descriptor associated with stdout
 	int close_rc = close(STDOUT_FILENO);
 	if (close_rc < 0) {
 		displayError();
-		exit(1);
+		return (-2);
 	}
 	// Open a new file with the same fd as STDOUT_FILENO
 	int fd = open(filename, O_RDWR | O_TRUNC, S_IRWXU);
 	if (fd < 0) {
 		displayError();
-		exit(1);
+		perror("file descriptor won't open..");
+		return (-1);
 	}
+	return (0);
 }
 
 /* function runCmd
@@ -173,8 +204,8 @@ void redirectOutput(char* filename) {
  *
  * Will not complete if there is an error opening the file
  */
-void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode) {
-
+void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode,
+		char* redirFile) {
 
 	// Creates a new process and executes the command
 	int rc = fork();
@@ -185,9 +216,10 @@ void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode) {
 	// Child uses execvp to run a different program
 	else if (rc == 0) {
 
-		// Close the file descriptor associated with stdout
-
-		if (redir_mode) redirectOutput();
+		// If redir_mode is set:
+		// close the fd for stdout and open the redirected file
+		if (redir_mode)
+			redirectOutput(redirFile);
 
 		execvp(argTokens[0], argTokens);
 		// Error Case: The command does not exist
@@ -229,14 +261,14 @@ void printInteractivePrompt(int inputMode) {
  */
 void execShell(FILE* inputStream, int inputMode) {
 
-	char inputBuf[MAX_INPUT_LENGTH + 2];
+	char inputBuf[MAX_INPUT_LENGTH + 2] ;
 
 	// read file line by line until EOF or error reading inputstream
 	while (fgets(inputBuf, (MAX_INPUT_LENGTH + 2), inputStream)) {
 		// check to make sure fgets returns valid input
 		if (inputBuf != NULL ) {
 
-			size_t buflen = strlen(inputBuf); // Number of characters read into buffer not inc null term.
+			size_t buflen = strlen(inputBuf); // Number of characters read into buffer (sans '\0')
 
 			// Prints the command back in batch mode
 			if (inputMode == BATCH_MODE)
@@ -245,23 +277,28 @@ void execShell(FILE* inputStream, int inputMode) {
 			// newline char index, if it exists
 			if (inputBuf[buflen - 1] == '\n') {	// input ends with ('\n')Acceptable length
 
-				char* argTokens[256] = { NULL }; // stores cmd line args
+				char* argTokens[MAX_INPUT_LENGTH / 2] = { NULL }; // stores cmd line args
 
 				// Flags to keep track of special modes
 				int bg_mode = 0;
 				int redir_mode = 0;
+				char* redirFile = NULL;
 
-				// Tokenize inputBuf and store into arg array
+				// Parse command line and store into argTokens[]
+				// Also sets the various special flags and files
+				int parse_rc = parseCmdLn(inputBuf, argTokens, &bg_mode,
+						&redir_mode, redirFile);
+
 				// If bad return value, restart loop to get new input
-				if(parseCmdLn(inputBuf, argTokens, &bg_mode, &redir_mode) <= 0)	continue;
-
+				if (parse_rc <= 0)  // redirection error or no input
+					continue;
 
 				// TODO built-in commands
 				checkBuiltinCmds(argTokens);
 
 				// Create a new process to run the command
 				// Parent waits until it exits if not background mode
-				runCmd(&argTokens, bg_mode, redir_mode, inputMode);
+				runCmd(&argTokens, bg_mode, redir_mode, inputMode, redirFile);
 
 			} else { //Line does not terminate with '\n'
 				if (buflen + 1 == sizeof inputBuf) { // input line Too long
@@ -284,7 +321,7 @@ void execShell(FILE* inputStream, int inputMode) {
 
 		}
 
-}
+	}
 }
 
 int main(int argc, char *argv[]) {
