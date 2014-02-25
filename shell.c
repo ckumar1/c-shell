@@ -232,7 +232,7 @@ void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode,
 	// Parent waits for child to finish if bg_mode is not sett
 	else {
 		if (bg_mode == FALSE) {
-			int wc = wait(NULL ); // TODO build custom wait
+			int wc = wait(NULL );
 		}
 
 		if (inputMode == INTERACTIVE_MODE) {
@@ -243,10 +243,47 @@ void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode,
 }
 
 void checkBuiltinCmds(char* argTokens[256]) {
-	// TODO built-in commands
-	if (strcmp("exit", argTokens[0]) == 0) {
-		exit(0);
+	// built-in commands
+	if (strcmp("exit", argTokens[0]) == 0) {	// exit program
+		if (argTokens[1] == NULL) exit(0);
+	} else if (strcmp("pwd", argTokens[0]) == 0) {	// print working directory
+		if (argTokens[1] == NULL) getcwd();
+	} else if (strcmp("cd", argTokens[0]) == 0) {	// change directory
+		// only 1 arg
+		if (argTokens[1] == NULL) {
+			chdir(getenv("HOME"));
+		}
+		// in case of argument check that it is of valid format
+		else if (argTokens[2] == NULL)
+		{
+			if (chdir(argTokens[1]) == -1) {
+				displayError();
+            }
+		} else { // invalid command
+			displayError();
+		}
+	
+	} else if (strcmp("wait", argTokens[0]) == 0) {		// wait for all children to exit
+		
+		int status, pid;
+
+		while ((pid = wait(&status)) != -1)	{}
+
+	} else if (isPythonFile(argTokens[0])) {	// TODO
+		runPython(argTokens[0]);	// TODO
 	}
+
+}
+
+int isPythonFile(char* cmdString){
+
+
+	return 0;
+}
+
+int runPython(char* cmdString){
+
+	return 0;
 }
 
 void printInteractivePrompt(int inputMode) {
@@ -325,6 +362,7 @@ void execShell(FILE* inputStream, int inputMode) {
 
 	}
 }
+
 
 int main(int argc, char *argv[]) {
 
