@@ -180,7 +180,7 @@ int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
  */
 int redirectOutput(char* filename) {
 	// Close the file descriptor associated with stdout
-	FILE* fnFile = freopen(filename, "w",stdout);
+	FILE* fnFile = freopen(filename, "w", stdout);
 
 	int freopen_rc = close(STDOUT_FILENO);
 	if (freopen_rc < 0) {
@@ -245,45 +245,67 @@ void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode,
 void checkBuiltinCmds(char* argTokens[256]) {
 	// built-in commands
 	if (strcmp("exit", argTokens[0]) == 0) {	// exit program
-		if (argTokens[1] == NULL) exit(0);
+		if (argTokens[1] == NULL )
+			exit(0);
 	} else if (strcmp("pwd", argTokens[0]) == 0) {	// print working directory
-		if (argTokens[1] == NULL) getcwd();
+		if (argTokens[1] == NULL )
+			getcwd();
 	} else if (strcmp("cd", argTokens[0]) == 0) {	// change directory
 		// only 1 arg
-		if (argTokens[1] == NULL) {
+		if (argTokens[1] == NULL ) {
 			chdir(getenv("HOME"));
 		}
 		// in case of argument check that it is of valid format
-		else if (argTokens[2] == NULL)
-		{
+		else if (argTokens[2] == NULL ) {
 			if (chdir(argTokens[1]) == -1) {
 				displayError();
-            }
+			}
 		} else { // invalid command
 			displayError();
 		}
-	
-	} else if (strcmp("wait", argTokens[0]) == 0) {		// wait for all children to exit
-		
+
+	} else if (strcmp("wait", argTokens[0]) == 0) {	// wait for all children to exit
+
 		int status, pid;
 
-		while ((pid = wait(&status)) != -1)	{}
+		while ((pid = wait(&status)) != -1) {
+		}
 
 	} else if (isPythonFile(argTokens[0])) {	// TODO
-		runPython(argTokens[0]);	// TODO
+		runPython(argTokens);	// TODO
 	}
 
 }
 
-int isPythonFile(char* cmdString){
+int isPythonFile(const char* cmdString) {
 
+	const char *period = strrchr(cmdString, '.');
+	if (!period || period == cmdString)
+		return (0);
+	char* extension;
+	extension = period + 1;
 
-	return 0;
+	if (strchr(extension, "py")) {
+		return (1);
+	} else {
+		return (0);
+	}
 }
 
-int runPython(char* cmdString){
+void runPython(char* cmdArgs[256]) {
 
-	return 0;
+	// run python interpreter /usr/bin/python
+	// using the cmd args as parameters for it's parameters
+	int size = 256;
+	char* python = "/usr/bin/python";
+	int c;
+	// shift each argument over to make space
+	// Note: loses the last argument
+	for (c = size - 1; c >= 0 - 1; c--)
+		cmdArgs[c + 1] = cmdArgs[c];
+
+	// insert command to run python interpereter
+	cmdArgs[0] = python;
 }
 
 void printInteractivePrompt(int inputMode) {
@@ -300,7 +322,7 @@ void printInteractivePrompt(int inputMode) {
  */
 void execShell(FILE* inputStream, int inputMode) {
 
-	char inputBuf[MAX_INPUT_LENGTH + 2] ;
+	char inputBuf[MAX_INPUT_LENGTH + 2];
 
 	// read file line by line until EOF or error reading inputstream
 	while (fgets(inputBuf, (MAX_INPUT_LENGTH + 2), inputStream)) {
@@ -362,7 +384,6 @@ void execShell(FILE* inputStream, int inputMode) {
 
 	}
 }
-
 
 int main(int argc, char *argv[]) {
 
