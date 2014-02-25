@@ -48,18 +48,18 @@ int tokenize(char inputString[MAX_INPUT_LENGTH + 2],
 	int ntokens = 0;
 //	tokens = NULL;
 	char* tok = NULL;
+	tok = strtok(inputString, " ");
 	do {
-		// Tokenize inputBuffer and store into arg array
-		tok = strtok(inputString, " ");
-
 		tokens[ntokens] = strdup(tok);	// Copy each token into array
-
-		ntokens++;	// Increment ntokens
-
+		ntokens++; // increment number of tokens
+		// Tokenize inputBuffer and store into arg array
 		tok = strtok(NULL, " ");	// Get next token
-
 	} while (tok != NULL );
 
+	// add null terminating argument to argArray
+	tokens[ntokens] = tok;
+
+	// return number of arguments found
 	return (ntokens);
 }
 
@@ -166,7 +166,9 @@ int parseCmdLn(char inputBuffer[MAX_INPUT_LENGTH + 2],
 	}
 
 	// Tokenize inputBuffer and store into arg array
-	return (tokenize(inputBuffer, argTokens)); // Return # of tokens in cmd input
+	int argCount = tokenize(inputBuffer, argTokens);
+	// Return # of tokens in cmd input
+	return (argCount);
 }
 
 /* function redirectOutput
