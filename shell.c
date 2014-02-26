@@ -244,38 +244,73 @@ void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode,
 	}
 }
 
-void checkBuiltinCmds(char* argTokens[256]) {
+/*function checkBuiltinCmds
+ *
+ * checks for built-in commands
+ *
+ * returns 1 if found and run, break the loop and reprompt
+ * returns -1 if in an incorrect format, break the loop and reprompt
+ * returns 0 if not builtin or python, continue loop
+ */
+int checkBuiltinCmds(char* argTokens[256]) {
 	// built-in commands
 	if (strcmp("exit", argTokens[0]) == 0) {	// exit program
 		if (argTokens[1] == NULL )
 			exit(0);
-	} else if (strcmp("pwd", argTokens[0]) == 0) {	// print working directory
-		if (argTokens[1] == NULL )
-			getcwd();
-	} else if (strcmp("cd", argTokens[0]) == 0) {	// change directory
-		// only 1 arg
-		if (argTokens[1] == NULL ) {
-			chdir(getenv("HOME"));
-		}
-		// in case of argument check that it is of valid format
-		else if (argTokens[2] == NULL ) {
-			if (chdir(argTokens[1]) == -1) {
-				displayError();
-			}
-		} else { // invalid command
+		else {	//bad exit
 			displayError();
+			return (-1);
+		}
+	} else if (strcmp("pwd", argTokens[0]) == 0) {	// print working directory
+
+		if (argTokens[1] == NULL ) {	// no other args
+			getcwd();
+			return (1);
+		} else {	//bad pwd
+			displayError();
+			return (-1);
+		}
+	} else if (strcmp("cd", argTokens[0]) == 0) {	// cd
+
+		if (argTokens[1] == NULL ) {	// no args
+			chdir(getenv("HOME"));
+			return(1);
+		}
+		// make sure there is only one arg
+		else if (argTokens[2] == NULL ) {	// one arg
+
+			if (chdir(argTokens[1]) == -1) {	// check if directory is valid
+				displayError();
+				return(-1);
+			} else {	// bad cd: bad arg
+				chdir(argTokens[1]);
+				return (1);
+			}
+
+		} else {	// bad cd2: extra args
+			displayError();
+			return (-1);
 		}
 
 	} else if (strcmp("wait", argTokens[0]) == 0) {	// wait for all children to exit
 
-		int status, pid;
-
-		while ((pid = wait(&status)) != -1) {
+		if (argTokens[1] == NULL ) { 	// check for extra args
+			int status, pid;
+			while ((pid = wait(&status)) != -1) {}	// wait for stuff
+			return(0);
+		} else {	// bad wait
+			displayError();
+			return (-1);
 		}
 
-	} else if (isPythonFile(argTokens[0])) {	// TODO
-		runPython(argTokens);	// TODO
+	} else if (isPythonFile(argTokens[0])) {
+
+		// replace arg0 after shifting the argTokens to the right
+		runPython(argTokens);
 	}
+
+	// not a built-in command run regularly
+	return (0);
 
 }
 
@@ -356,12 +391,11 @@ void execShell(FILE* inputStream, int inputMode) {
 				if (parse_rc <= 0)  // redirection error or no input
 					continue;
 
-				// TODO built-in commands
-				checkBuiltinCmds(argTokens);
-
-				// Create a new process to run the command
-				// Parent waits until it exits if not background mode
-				runCmd(&argTokens, bg_mode, redir_mode, inputMode, redirFile);
+				// Built-in commands
+				int builtin_rc = checkBuiltinCmds(argTokens);
+				if (builtin_rc == 0)  // if builtin command not found or python
+					// Create a new process to run the command
+					runCmd(&argTokens, bg_mode, redir_mode, inputMode, redirFile);
 
 			} else { //Line does not terminate with '\n'
 				if (buflen + 1 == sizeof inputBuf) { // input line Too long
