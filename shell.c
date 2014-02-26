@@ -255,8 +255,11 @@ void runCmd(char** argTokens[256], int bg_mode, int redir_mode, int inputMode,
 int checkBuiltinCmds(char* argTokens[256]) {
 	// built-in commands
 	if (strcmp("exit", argTokens[0]) == 0) {	// exit program
-		if (argTokens[1] == NULL )
+		if (argTokens[1] == NULL ) {
 			exit(0);
+			return (-2);
+		}
+
 		else {	//bad exit
 			displayError();
 			return (-1);
@@ -267,7 +270,8 @@ int checkBuiltinCmds(char* argTokens[256]) {
 			char* currDir = NULL;
 			currDir = getcwd(currDir, 0);
 			if (currDir) {
-				puts(currDir);
+				write(STDOUT_FILENO,currDir, strlen(currDir));
+				write(STDOUT_FILENO,"\n", 1);
 				return (1);
 			}
 			displayError();
@@ -400,6 +404,9 @@ void execShell(FILE* inputStream, int inputMode) {
 
 				// Built-in commands
 				int builtin_rc = checkBuiltinCmds(argTokens);
+			    if (builtin_rc == -2) {
+					exit(0);
+				}
 				if (builtin_rc == 0)  // if builtin command not found or python
 					// Create a new process to run the command
 					runCmd(&argTokens, bg_mode, redir_mode, inputMode, redirFile);
