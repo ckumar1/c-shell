@@ -419,7 +419,7 @@ void execShell(FILE* inputStream, int inputMode) {
 					dumpline(inputStream);
 
 					// write a newline character to stdout start on a new line
-					write(STDOUT_FILENO,"\n",1)
+					write(STDOUT_FILENO,"\n",1);
 
 					// prints "mysh> "
 					printInteractivePrompt(inputMode);
