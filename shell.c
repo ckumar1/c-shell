@@ -264,8 +264,15 @@ int checkBuiltinCmds(char* argTokens[256]) {
 	} else if (strcmp("pwd", argTokens[0]) == 0) {	// print working directory
 
 		if (argTokens[1] == NULL ) {	// no other args
-			getcwd();
-			return (1);
+			char* currDir = NULL;
+			currDir = getcwd(currDir, 0);
+			if (currDir) {
+				write(STDOUT_FILENO,currDir, strlen(currDir));
+				return (1);
+			}
+			displayError();
+			return (-1);
+
 		} else {	//bad pwd
 			displayError();
 			return (-1);
