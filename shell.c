@@ -267,7 +267,7 @@ int checkBuiltinCmds(char* argTokens[256]) {
 			char* currDir = NULL;
 			currDir = getcwd(currDir, 0);
 			if (currDir) {
-				write(STDOUT_FILENO,currDir, strlen(currDir));
+				puts(currDir);
 				return (1);
 			}
 			displayError();
